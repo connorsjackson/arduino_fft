@@ -51,7 +51,7 @@ void compute(float data_re[], float data_im[], const unsigned int N)
 			for(unsigned int pair_N=group; pair_N<N; pair_N+=jump)
 			{
 				const unsigned int match = pair_N + step;
-				const float product_re = twiddle_re*data_re[match]-twiddle_im*data_im[match];
+                const float product_re = twiddle_re*data_re[match]-twiddle_im*data_im[match];
 				const float product_im = twiddle_im*data_re[match]+twiddle_re*data_im[match];
 				data_re[match] = data_re[pair_N]-product_re;
 				data_im[match] = data_im[pair_N]-product_im;
