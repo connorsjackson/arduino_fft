@@ -45,41 +45,36 @@ compute(float data_re[], float data_im[], const unsigned int N)
 	for(unsigned int pair=group; pair<N; pair+=jump)
 	  {
 	    const unsigned int match = pair + step;
-        
-        float temp_vector0[2];
-        temp_vector0[0] = twiddle_re;
-        temp_vector0[1] = twiddle_im;
-        float temp_vector2[2];
-        temp_vector2[0] = -twiddle_im;
-        temp_vector2[1] = twiddle_re;
+      
+      float temp_vector0[2];
+      float temp_vector1[2];
+      float temp_vector2[2];
+      float temp_vector3[2];
+      temp_vector0[0] = twiddle_re;
+      temp_vector1[0] = data_re[match];
+      temp_vector2[0] = -twiddle_im;
+      temp_vector3[0] = data_im[match];
+      temp_vector0[1] = twiddle_im;
+      temp_vector1[1] = data_re[match];
+      temp_vector2[1] = twiddle_re;
+      temp_vector3[1] = data_im[match];
+      
+      //load
+      float32x2_t vector0 = vld1_f32(temp_vector0);
+      float32x2_t vector1 = vld1_f32(temp_vector1);
+      float32x2_t vector2 = vld1_f32(temp_vector2);
+      float32x2_t vector3 = vld1_f32(temp_vector3);
+      //mult & add
+      float32x2_t data0 = vmul_f32(vector0, vector1); //mult
+      float32x2_t data1 = vmul_f32(vector2, vector3); //mult
+      float32x2_t ans = vadd_f32(data0, data1); //add
+      //product_re = ans[0];
+      //product_im = ans[1];
 
-        float temp_vector1[2];
-        temp_vector1[0] = data_re[match];
-        temp_vector1[1] = data_im[match];
-        float temp_vector3[2];
-        temp_vector1[0] = data_re[match];
-        temp_vector1[1] = data_im[match];
-        float32x2_t data0 = vmul_f32(vector0, vector2);
-        float32x2_t data1 = vmul_f32(vector1, vector3);
-
-        float32x4_t  = vld1q_f32(data0); //add
-
-
-
-        float temp_vector1[4];
-        temp_vector0[0] = twiddle_re;
-        temp_vector0[1] = ;
-        temp_vector0[2] = ;
-        temp_vector0[3] = ;
-        float32x4_t vector0 = vld1q_f32(temp_vector0); //add
-        float32x4_t data = vmulq_f32(vector0, vector1); //mult
-
-	    const float product_re = twiddle_re*data_re[match]-twiddle_im*data_im[match];
-	    const float product_im = twiddle_im*data_re[match]+twiddle_re*data_im[match];
-	    data_re[match] = data_re[pair]-product_re;
-	    data_im[match] = data_im[pair]-product_im;
-	    data_re[pair] += product_re;
-	    data_im[pair] += product_im;
+	    data_re[match] = data_re[pair]-ans[0];
+	    data_im[match] = data_im[pair]-ans[1];
+	    data_re[pair] += ans[0];
+	    data_im[pair] += ans[1];
 	  }
 	
 	// we need the factors below for the next iteration

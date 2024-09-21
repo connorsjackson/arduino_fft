@@ -1,5 +1,6 @@
 #include <math.h>
 #include "fft.h"
+#include <arm_neon.h>
 
 void
 fft(float data_re[], float data_im[], const unsigned int N)
@@ -61,7 +62,7 @@ void compute(float data_re[], float data_im[], const unsigned int N)
 		}
 		
 
-		else //unroll if can
+		else //unroll & Neon if can
 		{
 			for(unsigned int pair=group; pair<loop_remainder; pair+=jump_unroll)
 			{
@@ -69,20 +70,46 @@ void compute(float data_re[], float data_im[], const unsigned int N)
 				const unsigned int pair2 = pair + jump;
 				const unsigned int match2 = pair2 + step;
 
-				const float product_re = twiddle_re*data_re[match1]-twiddle_im*data_im[match1];
-				const float product_im = twiddle_im*data_re[match1]+twiddle_re*data_im[match1];
-				const float product_re2 = twiddle_re*data_re[match2]-twiddle_im*data_im[match2];
-				const float product_im2 = twiddle_im*data_re[match2]+twiddle_re*data_im[match2];
+				//Set up vectors (memory)
+				float temp_vector0[4], temp_vector1[4], temp_vector2[4], temp_vector3[4];
+				temp_vector0[0] = twiddle_re;
+				temp_vector1[0] = data_re[match1];
+				temp_vector2[0] = -twiddle_im;
+				temp_vector3[0] = data_im[match1];
+				temp_vector0[1] = twiddle_im;
+				temp_vector1[1] = data_re[match1];
+				temp_vector2[1] = twiddle_re;
+				temp_vector3[1] = data_im[match1];
 
-				data_re[match1] = data_re[pair]-product_re;
-				data_im[match1] = data_im[pair]-product_im;
-				data_re[match2] = data_re[pair2]-product_re2;
-				data_im[match2] = data_im[pair2]-product_im2;
+				temp_vector0[2] = twiddle_re;
+				temp_vector1[2] = data_re[match2];
+				temp_vector2[2] = -twiddle_im;
+				temp_vector3[2] = data_im[match2];
+				temp_vector0[3] = twiddle_im;
+				temp_vector1[3] = data_re[match2];
+				temp_vector2[3] = twiddle_re;
+				temp_vector3[3] = data_im[match2];
 
-				data_re[pair] += product_re;
-				data_im[pair] += product_im;
-				data_re[pair2] += product_re2;
-				data_im[pair2] += product_im2;
+				//load
+				float32x4_t vector0 = vld1q_f32(temp_vector0);
+				float32x4_t vector1 = vld1q_f32(temp_vector1);
+				float32x4_t vector2 = vld1q_f32(temp_vector2);
+				float32x4_t vector3 = vld1q_f32(temp_vector3);
+				//mult & add
+				float32x4_t data0 = vmulq_f32(vector0, vector1); //mult
+				float32x4_t data1 = vmulq_f32(vector2, vector3); //mult
+				float32x4_t ans = vaddq_f32(data0, data1); //add
+				//product_re = ans[0], product_im = ans[1], product_re2 = ans[3], product_im2 = ans[4];
+
+				data_re[match1] = data_re[pair]-ans[0];
+				data_im[match1] = data_im[pair]-ans[1];
+				data_re[match2] = data_re[pair2]-ans[2];
+				data_im[match2] = data_im[pair2]-ans[3];
+
+				data_re[pair] += ans[0];
+				data_im[pair] += ans[1];
+				data_re[pair2] += ans[2];
+				data_im[pair2] += ans[3];
 			}
 
 			if (remainder != 0) //use naive for remainder if exists
